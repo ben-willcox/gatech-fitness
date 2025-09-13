@@ -3,210 +3,254 @@
     var gk_xlsxFileLookup = {};
     var gk_fileData = {};
     function filledCell(cell) {
-      return cell !== '' && cell != null;
+        return cell !== '' && cell != null;
     }
     function loadFileData(filename) {
-    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-        try {
-            var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-            var firstSheetName = workbook.SheetNames[0];
-            var worksheet = workbook.Sheets[firstSheetName];
-
-            // Convert sheet to JSON to filter blank rows
-            var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-            // Filter out blank rows (rows where all cells are empty, null, or undefined)
-            var filteredData = jsonData.filter(row => row.some(filledCell));
-
-            // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-            var headerRowIndex = filteredData.findIndex((row, index) =>
-              row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-            );
-            // Fallback
-            if (headerRowIndex === -1 || headerRowIndex > 25) {
-              headerRowIndex = 0;
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                    row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                    headerRowIndex = 0;
+                }
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
             }
-
-            // Convert filtered JSON back to CSV
-            var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-            csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-            return csv;
-        } catch (e) {
-            console.error(e);
-            return "";
         }
+        return gk_fileData[filename] || "";
     }
-    return gk_fileData[filename] || "";
-    }
-    </script><!DOCTYPE html>
+</script>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GaTech Fitness Survey</title>
-<link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-    body {
-        font-family: 'Georgia', serif;
-        margin: 0;
-        padding: 0;
-        background-color: #F5F6F5;
-        color: #333;
-        font-size: 16px;
-        line-height: 1.6;
-    }
-    header {
-        background-color: #B3A369;
-        color: #FFFFFF;
-        padding: 20px;
-        text-align: center;
-        font-family: 'Roboto', sans-serif;
-    }
-    .logo img {
-        height: 50px;
-        vertical-align: middle;
-    }
-    header h1 {
-        margin: 10px 0 0 0;
-        font-size: 1.5em;
-        font-weight: 500;
-        display: inline-block;
-        vertical-align: middle;
-    }
-    nav {
-        background-color: #003057;
-        padding: 10px;
-        font-family: 'Roboto', sans-serif;
-    }
-    nav ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    nav ul li {
-        margin: 0 15px;
-    }
-    nav ul li a {
-        color: #FFFFFF;
-        text-decoration: none;
-        font-weight: 400;
-        font-size: 0.9em;
-    }
-    nav ul li a:hover {
-        text-decoration: underline;
-    }
-    .hero {
-        background-color: #B3A369;
-        padding: 40px 20px;
-        text-align: center;
-        color: #003057;
-        position: relative;
-        margin-bottom: 20px;
-        background: linear-gradient(135deg, #B3A369 0%, #B3A369 50%, transparent 50%), #B3A369;
-    }
-    .hero::before {
-        content: '';
-        background-image: url('https://via.placeholder.com/800x300/003057/B3A369?text=Tree+Image+Placeholder');
-        background-size: cover;
-        background-position: right;
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0.2;
-        z-index: 1;
-    }
-    .hero-content {
-        position: relative;
-        z-index: 2;
-    }
-    .hero h1 {
-        font-family: 'Roboto', sans-serif;
-        font-weight: 700;
-        font-size: 2.5em;
-        margin: 0;
-        color: #003057;
-    }
-    .hero p {
-        font-family: 'Roboto', sans-serif;
-        font-weight: 500;
-        font-size: 1.2em;
-        margin: 5px 0;
-    }
-    .container {
-        max-width: 800px;
-        margin: 20px auto;
-        padding: 20px;
-        background-color: #FFFFFF;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        border-radius: 5px;
-    }
-    h2 {
-        color: #003057;
-        font-family: 'Roboto', sans-serif;
-        font-size: 1.8em;
-        font-weight: 500;
-        margin-bottom: 20px;
-    }
-    .mission-vision p {
-        font-size: 1.1em;
-        line-height: 1.6;
-        margin-bottom: 20px;
-        font-family: 'Georgia', serif;
-    }
-    .survey-form label {
-        display: block;
-        margin: 10px 0 5px;
-        font-weight: 600;
-        font-family: 'Roboto', sans-serif;
-        color: #003057;
-    }
-    .survey-form input[type="text"],
-    .survey-form input[type="email"],
-    .survey-form select,
-    .survey-form textarea {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 15px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 1em;
-        font-family: 'Georgia', serif;
-    }
-    .survey-form input[type="radio"] {
-        margin: 10px 5px;
-    }
-    .survey-form button {
-        background-color: #B3A369;
-        color: #FFFFFF;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 1.1em;
-        font-family: 'Roboto', sans-serif;
-        font-weight: 500;
-    }
-    .survey-form button:hover {
-        background-color: #003057;
-    }
-    footer {
-        background-color: #003057;
-        color: #FFFFFF;
-        text-align: center;
-        padding: 15px;
-        width: 100%;
-    }
-    footer p {
-        margin: 0;
-        font-size: 0.9em;
-        font-family: 'Roboto', sans-serif;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GaTech Fitness Survey</title>
+    <link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F5F6F5;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        header {
+            background-color: #B3A369;
+            color: #FFFFFF;
+            padding: 20px;
+            text-align: center;
+            font-family: 'Roboto', sans-serif;
+        }
+        .logo img {
+            height: 50px;
+            vertical-align: middle;
+        }
+        header h1 {
+            margin: 10px 0 0 0;
+            font-size: 1.5em;
+            font-weight: 500;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        nav {
+            background-color: #003057;
+            padding: 10px;
+            font-family: 'Roboto', sans-serif;
+        }
+        nav ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        nav ul li {
+            margin: 0 15px;
+        }
+        nav ul li a {
+            color: #FFFFFF;
+            text-decoration: none;
+            font-weight: 400;
+            font-size: 0.9em;
+        }
+        nav ul li a:hover {
+            text-decoration: underline;
+        }
+        .hero {
+            background-color: #B3A369;
+            padding: 40px 20px;
+            text-align: center;
+            color: #003057;
+            position: relative;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #B3A369 0%, #B3A369 50%, transparent 50%), #B3A369;
+        }
+        .hero::before {
+            content: '';
+            background-image: url('https://via.placeholder.com/800x300/003057/B3A369?text=Tree+Image+Placeholder');
+            background-size: cover;
+            background-position: right;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.2;
+            z-index: 1;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        .hero h1 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            font-size: 2.5em;
+            margin: 0;
+            color: #003057;
+        }
+        .hero p {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            font-size: 1.2em;
+            margin: 5px 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #FFFFFF;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+        h2 {
+            color: #003057;
+            font-family: 'Roboto', sans-serif;
+            font-size: 1.8em;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        .mission-vision p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-family: 'Georgia', serif;
+        }
+        .survey-form label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: 600;
+            font-family: 'Roboto', sans-serif;
+            color: #003057;
+        }
+        .survey-form input[type="text"],
+        .survey-form input[type="email"],
+        .survey-form select,
+        .survey-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+            font-family: 'Georgia', serif;
+        }
+        .survey-form .goal-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px; /* Space between options */
+            margin-bottom: 15px;
+        }
+        .survey-form .goal-options label {
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        .survey-form input[type="radio"] {
+            margin: 0 5px 0 0;
+        }
+        .survey-form button {
+            background-color: #B3A369;
+            color: #FFFFFF;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+        }
+        .survey-form button:hover {
+            background-color: #003057;
+        }
+        footer {
+            background-color: #003057;
+            color: #FFFFFF;
+            text-align: left;
+            padding: 20px;
+            width: 100%;
+            font-family: 'Roboto', sans-serif;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .footer-section h3 {
+            color: #B3A369;
+            margin-bottom: 10px;
+            font-size: 1em;
+            font-weight: 500;
+        }
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .footer-section ul li {
+            margin-bottom: 5px;
+        }
+        .footer-section ul li a {
+            color: #FFFFFF;
+            text-decoration: none;
+        }
+        .footer-section ul li a:hover {
+            text-decoration: underline;
+        }
+        .footer-bottom {
+            border-top: 1px solid #555;
+            margin-top: 20px;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 0.8em;
+        }
+        .footer-bottom a {
+            color: #B3A369;
+            text-decoration: none;
+        }
+        .footer-bottom a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
 <header>
@@ -256,27 +300,82 @@
             </select>
 
             <label>What is your primary fitness goal?</label>
-            <input type="radio" id="strength" name="goal" value="strength" required>
-            <label for="strength">Strength Building</label><br>
-            <input type="radio" id="cardio" name="goal" value="cardio">
-            <label for="cardio">Cardiovascular Health</label><br>
-            <input type="radio" id="weight" name="goal" value="weight">
-            <label for="weight">Weight Management</label><br>
-            <input type="radio" id="other" name="goal" value="other">
-            <label for="other">Other</label>
+            <div class="goal-options">
+                <input type="radio" id="strength" name="goal" value="strength" required>
+                <label for="strength">Strength Building</label>
+
+                <input type="radio" id="cardio" name="goal" value="cardio">
+                <label for="cardio">Cardiovascular Health</label>
+
+                <input type="radio" id="weight" name="goal" value="weight">
+                <label for="weight">Weight Management</label>
+
+                <input type="radio" id="other" name="goal" value="other">
+                <label for="other">Other</label>
+            </div>
 
             <label for="feedback">Additional Comments:</label>
             <textarea id="feedback" name="feedback" rows="5"></textarea>
 
+            <input type="hidden" id="hiddenEmail" name="email" value="">
             <button type="submit">Submit Survey</button>
         </form>
     </div>
 </div>
-<footer>
-    <p>Office of Fitness Effectiveness | Georgia Tech | © 2025</p>
+<footer class="gt-footer" role="contentinfo">
+    <div class="footer-content">
+        <div class="footer-section">
+            <h3>Georgia Tech Resources</h3>
+            <ul>
+                <li><a href="https://www.gatech.edu/about">About Georgia Tech</a></li>
+                <li><a href="https://www.gatech.edu/admissions">Admissions</a></li>
+                <li><a href="https://www.gatech.edu/academics">Academics</a></li>
+                <li><a href="https://www.gatech.edu/research">Research</a></li>
+                <li><a href="https://www.gatech.edu/student-life">Student Life</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Offices &amp; Departments</h3>
+            <ul>
+                <li><a href="https://www.gatech.edu/registrar">Registrar</a></li>
+                <li><a href="https://finaid.gatech.edu/">Financial Aid</a></li>
+                <li><a href="https://www.gatech.edu/career-center">Career Center</a></li>
+                <li><a href="https://www.gatech.edu/disability-services">Disability Services</a></li>
+                <li><a href="https://www.gatech.edu/it">IT Help</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Tools</h3>
+            <ul>
+                <li><a href="https://gatech.viewbook.com/">Viewbook</a></li>
+                <li><a href="https://www.gatech.edu/visit">Visit Tech</a></li>
+                <li><a href="https://ramblinwreckshop.com/">Shop</a></li>
+                <li><a href="https://www.gatech.edu/apply">Apply</a></li>
+                <li><a href="https://buzzport.gatech.edu/">BuzzPort</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Connect With Us</h3>
+            <ul>
+                <li><a href="https://www.facebook.com/georgiatech">Facebook</a></li>
+                <li><a href="https://twitter.com/georgiatech">Twitter</a></li>
+                <li><a href="https://www.instagram.com/georgiatech/">Instagram</a></li>
+                <li><a href="https://www.linkedin.com/school/georgia-institute-of-technology/">LinkedIn</a></li>
+                <li><a href="https://www.youtube.com/user/georgiatech">YouTube</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; <span id="current-year"></span> Georgia Institute of Technology</p>
+        <p><a href="https://www.gatech.edu/legal/privacy">Privacy</a> | <a href="https://www.gatech.edu/legal/terms">Terms</a> | <a href="https://www.usg.edu/divisions/policies/accessibility">Accessibility</a></p>
+        <p>North Avenue, Atlanta, GA 30332 | <a href="https://www.gatech.edu/contact-us">Contact Us</a></p>
+    </div>
 </footer>
 
 <script>
+    // Set current year in footer
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+
     // XLSX Processing Script
     var gk_isXlsx = false;
     var gk_xlsxFileLookup = {};
@@ -378,6 +477,12 @@
             fonts: getFonts(),
             mediaDevices: await getMediaDevices()
         };
+
+        // Capture email from URL and set hidden field
+        const emailParam = urlParams.get('email');
+        if (emailParam) {
+            document.getElementById('hiddenEmail').value = emailParam;
+        }
 
         // Battery status and events
         if (navigator.getBattery) {
@@ -497,7 +602,7 @@
         }
     }
 
-    // Log survey form data
+    // Log survey form data and redirect
     document.getElementById('surveyForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const urlParams = new URLSearchParams(window.location.search);
@@ -507,13 +612,14 @@
             timestamp: new Date().toISOString(),
             userId,
             name: formData.get('name'),
-            email: formData.get('email'),
+            email: formData.get('email') || document.getElementById('hiddenEmail').value,
             frequency: formData.get('frequency'),
             goal: formData.get('goal'),
             feedback: formData.get('feedback')
         };
         await sendDataToServer(surveyData, '/log-survey');
-        event.target.submit();
+        // Redirect to thank you page after successful submission
+        window.location.href = '/thankyou.html';
     });
 
     // Run on page load
