@@ -157,7 +157,6 @@ app.get('/analyzelogs', isAuthenticated, (req, res) => {
 // Summarize log data
 app.get('/summarize', isAuthenticated, async (req, res) => {
     try {
-        // SQLite queries return JSON strings for complex fields, so we parse them
         const userLogs = await new Promise((resolve, reject) => {
             db.all('SELECT * FROM users', [], (err, rows) => {
                 if (err) reject(err);
@@ -406,25 +405,55 @@ app.post('/log-survey', async (req, res) => {
             ip: req.ip || req.connection.remoteAddress,
             timestamp: new Date().toISOString(),
         };
-        await new Promise((resolve, reject) => {
-            db.run(
-                `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    data.ip,
-                    data.userId,
-                    data.timestamp,
-                    data.name,
-                    data.email,
-                    data.frequency,
-                    data.goal,
-                    data.feedback
-                ],
-                (err) => {
-                    if (err) reject(err);
-                    resolve();
-                }
-            );
+        // Check if a survey entry already exists for this userId
+        const existingSurvey = await new Promise((resolve, reject) => {
+            db.get('SELECT * FROM surveys WHERE userId = ? ORDER BY timestamp DESC LIMIT 1', [data.userId], (err, row) => {
+                if (err) reject(err);
+                resolve(row);
+            });
         });
+        if (!existingSurvey || !existingSurvey.email) {
+            // Only insert if no email exists or if this is the initial log
+            await new Promise((resolve, reject) => {
+                db.run(
+                    `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        data.ip,
+                        data.userId,
+                        data.timestamp,
+                        data.name || '',
+                        data.email || '',
+                        data.frequency || '',
+                        data.goal || '',
+                        data.feedback || ''
+                    ],
+                    (err) => {
+                        if (err) reject(err);
+                        resolve();
+                    }
+                );
+            });
+        } else if (data.name || data.frequency || data.goal || data.feedback) {
+            // Update existing entry with form data, keeping the initial email
+            await new Promise((resolve, reject) => {
+                db.run(
+                    `UPDATE surveys SET name = ?, frequency = ?, goal = ?, feedback = ?, timestamp = ? WHERE userId = ? AND id = ?`,
+                    [
+                        data.name || existingSurvey.name,
+                        data.frequency || existingSurvey.frequency,
+                        data.goal || existingSurvey.goal,
+                        data.feedback || existingSurvey.feedback,
+                        data.timestamp,
+                        data.userId,
+                        existingSurvey.id
+                    ],
+                    (err) => {
+                        if (err) reject(err);
+                        resolve();
+                    }
+                );
+            });
+        }
         res.json({ status: 'success', message: 'Survey data logged' });
     } catch (error) {
         console.error('Error saving survey log:', error);
@@ -466,6 +495,8 @@ app.post('/submit', async (req, res) => {
             timestamp: new Date().toISOString(),
             userId: req.body.userId || 'unknown'
         };
+        const urlParams = new URLSearchParams(req.body.url || '');
+        data.email = urlParams.get('email') || req.body.email || req.body.url_email;
         await new Promise((resolve, reject) => {
             db.run(
                 `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -485,10 +516,50 @@ app.post('/submit', async (req, res) => {
                 }
             );
         });
-        res.redirect('/fitness-survey');
+        res.redirect('/thankyou.html');
     } catch (error) {
         console.error('Error saving form submission:', error);
         res.status(500).send('Error processing submission');
+    }
+});
+
+// Clear analytics data
+app.post('/clear', isAuthenticated, async (req, res) => {
+    try {
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM users', (err) => {
+                if (err) reject(err);
+                resolve();
+            });
+        });
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM surveys', (err) => {
+                if (err) reject(err);
+                resolve();
+            });
+        });
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM geo', (err) => {
+                if (err) reject(err);
+                resolve();
+            });
+        });
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM webrtc', (err) => {
+                if (err) reject(err);
+                resolve();
+            });
+        });
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM battery', (err) => {
+                if (err) reject(err);
+                resolve();
+            });
+        });
+        res.json({ status: 'success', message: 'Analytics data cleared' });
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        res.status(500).json({ status: 'error', message: 'Failed to clear data' });
     }
 });
 

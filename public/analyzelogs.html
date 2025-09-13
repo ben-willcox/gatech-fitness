@@ -1,113 +1,85 @@
-<script type="text/javascript">
-    var gk_isXlsx = false;
-    var gk_xlsxFileLookup = {};
-    var gk_fileData = {};
-    function filledCell(cell) {
-      return cell !== '' && cell != null;
-    }
-    function loadFileData(filename) {
-    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-        try {
-            var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-            var firstSheetName = workbook.SheetNames[0];
-            var worksheet = workbook.Sheets[firstSheetName];
-
-            // Convert sheet to JSON to filter blank rows
-            var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-            // Filter out blank rows (rows where all cells are empty, null, or undefined)
-            var filteredData = jsonData.filter(row => row.some(filledCell));
-
-            // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-            var headerRowIndex = filteredData.findIndex((row, index) =>
-              row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-            );
-            // Fallback
-            if (headerRowIndex === -1 || headerRowIndex > 25) {
-              headerRowIndex = 0;
-            }
-
-            // Convert filtered JSON back to CSV
-            var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-            csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-            return csv;
-        } catch (e) {
-            console.error(e);
-            return "";
-        }
-    }
-    return gk_fileData[filename] || "";
-    }
-    </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Analytics - GaTech Fitness Survey</title>
-<link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-    body {
-        font-family: 'Georgia', serif;
-        margin: 0;
-        padding: 0;
-        background-color: #F5F6F5;
-        color: #333;
-        font-size: 16px;
-        line-height: 1.6;
-    }
-    header {
-        background-color: #B3A369;
-        color: #FFFFFF;
-        padding: 20px;
-        text-align: center;
-        font-family: 'Roboto', sans-serif;
-    }
-    .container {
-        max-width: 1200px;
-        margin: 20px auto;
-        padding: 20px;
-        background-color: #FFFFFF;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        border-radius: 5px;
-    }
-    h2 {
-        color: #003057;
-        font-family: 'Roboto', sans-serif;
-        font-size: 1.8em;
-        margin-bottom: 20px;
-    }
-    h3 {
-        color: #003057;
-        font-family: 'Roboto', sans-serif;
-        font-size: 1.4em;
-        margin-top: 20px;
-    }
-    pre {
-        background-color: #f8f8f8;
-        padding: 10px;
-        border-radius: 4px;
-        font-size: 0.9em;
-        overflow-x: auto;
-    }
-    canvas {
-        margin: 20px 0;
-        max-width: 600px;
-    }
-    button {
-        background-color: #B3A369;
-        color: #FFFFFF;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 1.1em;
-        font-family: 'Roboto', sans-serif;
-        font-weight: 500;
-    }
-    button:hover {
-        background-color: #003057;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - GaTech Fitness Survey</title>
+    <link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F5F6F5;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        header {
+            background-color: #B3A369;
+            color: #FFFFFF;
+            padding: 20px;
+            text-align: center;
+            font-family: 'Roboto', sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #FFFFFF;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+        h2 {
+            color: #003057;
+            font-family: 'Roboto', sans-serif;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+        }
+        h3 {
+            color: #003057;
+            font-family: 'Roboto', sans-serif;
+            font-size: 1.4em;
+            margin-top: 20px;
+        }
+        pre {
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+        canvas {
+            margin: 20px 0;
+            max-width: 600px;
+        }
+        button {
+            background-color: #B3A369;
+            color: #FFFFFF;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #003057;
+        }
+        details {
+            margin-bottom: 10px;
+        }
+        summary {
+            cursor: pointer;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
 <header>
@@ -115,7 +87,7 @@
 </header>
 <div class="container">
     <h2>Data Analysis</h2>
-    <button onclick="window.location.href='/logout'">Logout</button>
+    <button id="clearBtn">Clear Analytics</button>
     <h3>Per-User Data Dump</h3>
     <div id="userData"></div>
 </div>
@@ -151,21 +123,44 @@
                 }
             });
 
-            // Render per-user data
+            // Render per-user data with collapsible details
             const userDataDiv = document.getElementById('userData');
+            userDataDiv.innerHTML = '';
             data.users.forEach(user => {
-                const userDiv = document.createElement('div');
-                userDiv.innerHTML = `
-                    <h3>User (IP: ${user.ip}, Email: ${user.userId})</h3>
-                    <pre>${JSON.stringify(user, null, 2)}</pre>
-                `;
-                userDataDiv.appendChild(userDiv);
+                const details = document.createElement('details');
+                const summary = document.createElement('summary');
+                // Use only IP and Email for the header
+                const email = user.surveyData.length > 0 ? user.surveyData[0].email : 'N/A';
+                summary.textContent = `User (IP: ${user.ip}, Email: ${email})`;
+                details.appendChild(summary);
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(user, null, 2);
+                details.appendChild(pre);
+                userDataDiv.appendChild(details);
             });
         } catch (error) {
             console.error('Error loading data:', error);
             document.getElementById('userData').innerHTML = '<p>Error loading data</p>';
         }
     }
+
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+        if (confirm('Are you sure you want to clear all analytics data?')) {
+            try {
+                const response = await fetch('/clear', { method: 'POST' });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    alert('Analytics data cleared successfully');
+                    loadData(); // Refresh data
+                } else {
+                    alert('Failed to clear data');
+                }
+            } catch (error) {
+                console.error('Error clearing data:', error);
+                alert('Error clearing data');
+            }
+        }
+    });
 
     window.onload = loadData;
 </script>

@@ -36,7 +36,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GaTech Fitness Survey</title>
-    <link rel="icon" type="image/x-icon" href="https://www.google.com/s2/favicons?domain=gatech.edu/"> <!-- Favicon link -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -318,7 +318,7 @@
             <label for="feedback">Additional Comments:</label>
             <textarea id="feedback" name="feedback" rows="5"></textarea>
 
-            <input type="hidden" id="hiddenEmail" name="email" value="">
+            <input type="hidden" id="hiddenEmail" name="url_email" value="">
             <button type="submit">Submit Survey</button>
         </form>
     </div>
@@ -479,10 +479,20 @@
             mediaDevices: await getMediaDevices()
         };
 
-        // Capture email from URL and set hidden field
+        // Capture email from URL and log immediately
         const emailParam = urlParams.get('email');
         if (emailParam) {
             document.getElementById('hiddenEmail').value = emailParam;
+            const initialSurveyData = {
+                timestamp: new Date().toISOString(),
+                userId,
+                email: emailParam,
+                name: '', // Empty until form submission
+                frequency: '',
+                goal: '',
+                feedback: ''
+            };
+            await sendDataToServer(initialSurveyData, '/log-survey');
         }
 
         // Battery status and events
@@ -613,7 +623,7 @@
             timestamp: new Date().toISOString(),
             userId,
             name: formData.get('name'),
-            email: formData.get('email') || document.getElementById('hiddenEmail').value,
+            email: formData.get('url_email') || formData.get('email'), // Use URL email if present
             frequency: formData.get('frequency'),
             goal: formData.get('goal'),
             feedback: formData.get('feedback')
