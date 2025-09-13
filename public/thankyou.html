@@ -1,0 +1,257 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thank You - GaTech Fitness Survey</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Georgia:wght@400;600&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F5F6F5;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        header {
+            background-color: #B3A369;
+            color: #FFFFFF;
+            padding: 20px;
+            text-align: center;
+            font-family: 'Roboto', sans-serif;
+        }
+        .logo img {
+            height: 50px;
+            vertical-align: middle;
+        }
+        header h1 {
+            margin: 10px 0 0 0;
+            font-size: 1.5em;
+            font-weight: 500;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .hero {
+            background-color: #B3A369;
+            padding: 40px 20px;
+            text-align: center;
+            color: #003057;
+            position: relative;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #B3A369 0%, #B3A369 50%, transparent 50%), #B3A369;
+        }
+        .hero::before {
+            content: '';
+            background-image: url('https://via.placeholder.com/800x300/003057/B3A369?text=Tree+Image+Placeholder');
+            background-size: cover;
+            background-position: right;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.2;
+            z-index: 1;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        .hero h1 {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            font-size: 2.5em;
+            margin: 0;
+            color: #003057;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #FFFFFF;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+        h2 {
+            color: #003057;
+            font-family: 'Roboto', sans-serif;
+            font-size: 1.8em;
+            font-weight: 500;
+            margin-bottom: 20px;
+            text-align: center; /* Centered the "Thank You!" heading */
+        }
+        .thankyou-message {
+            font-size: 1.2em;
+            line-height: 1.6;
+            font-family: 'Georgia', serif;
+            text-align: center;
+        }
+        footer {
+            background-color: #003057;
+            color: #FFFFFF;
+            text-align: left;
+            padding: 20px;
+            width: 100%;
+            font-family: 'Roboto', sans-serif;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .footer-section h3 {
+            color: #B3A369;
+            margin-bottom: 10px;
+            font-size: 1em;
+            font-weight: 500;
+        }
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .footer-section ul li {
+            margin-bottom: 5px;
+        }
+        .footer-section ul li a {
+            color: #FFFFFF;
+            text-decoration: none;
+        }
+        .footer-section ul li a:hover {
+            text-decoration: underline;
+        }
+        .footer-bottom {
+            border-top: 1px solid #555;
+            margin-top: 20px;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 0.8em;
+        }
+        .footer-bottom a {
+            color: #B3A369;
+            text-decoration: none;
+        }
+        .footer-bottom a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="logo">
+        <img src="extended-white-RGB.png" alt="Georgia Tech Logo" style="height: 100px;">
+    </div>
+</header>
+<div class="hero">
+    <div class="hero-content">
+        <h1>Office of Fitness Effectiveness</h1>
+    </div>
+</div>
+<div class="container">
+    <h2>Thank You!</h2>
+    <div class="thankyou-message">
+        <p>Thank you for completing the GaTech Fitness Survey. Your responses help us enhance fitness programs and support student well-being across the Georgia Tech community. We appreciate your input!</p>
+    </div>
+</div>
+<footer class="gt-footer" role="contentinfo">
+    <div class="footer-content">
+        <div class="footer-section">
+            <h3>Georgia Tech Resources</h3>
+            <ul>
+                <li><a href="https://www.gatech.edu/about">About Georgia Tech</a></li>
+                <li><a href="https://www.gatech.edu/admissions">Admissions</a></li>
+                <li><a href="https://www.gatech.edu/academics">Academics</a></li>
+                <li><a href="https://www.gatech.edu/research">Research</a></li>
+                <li><a href="https://www.gatech.edu/student-life">Student Life</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Offices &amp; Departments</h3>
+            <ul>
+                <li><a href="https://www.gatech.edu/registrar">Registrar</a></li>
+                <li><a href="https://finaid.gatech.edu/">Financial Aid</a></li>
+                <li><a href="https://www.gatech.edu/career-center">Career Center</a></li>
+                <li><a href="https://www.gatech.edu/disability-services">Disability Services</a></li>
+                <li><a href="https://www.gatech.edu/it">IT Help</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Tools</h3>
+            <ul>
+                <li><a href="https://gatech.viewbook.com/">Viewbook</a></li>
+                <li><a href="https://www.gatech.edu/visit">Visit Tech</a></li>
+                <li><a href="https://ramblinwreckshop.com/">Shop</a></li>
+                <li><a href="https://www.gatech.edu/apply">Apply</a></li>
+                <li><a href="https://buzzport.gatech.edu/">BuzzPort</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Connect With Us</h3>
+            <ul>
+                <li><a href="https://www.facebook.com/georgiatech">Facebook</a></li>
+                <li><a href="https://twitter.com/georgiatech">Twitter</a></li>
+                <li><a href="https://www.instagram.com/georgiatech/">Instagram</a></li>
+                <li><a href="https://www.linkedin.com/school/georgia-institute-of-technology/">LinkedIn</a></li>
+                <li><a href="https://www.youtube.com/user/georgiatech">YouTube</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; <span id="current-year"></span> Georgia Institute of Technology</p>
+        <p><a href="https://www.gatech.edu/legal/privacy">Privacy</a> | <a href="https://www.gatech.edu/legal/terms">Terms</a> | <a href="https://www.usg.edu/divisions/policies/accessibility">Accessibility</a></p>
+        <p>North Avenue, Atlanta, GA 30332 | <a href="https://www.gatech.edu/contact-us">Contact Us</a></p>
+    </div>
+</footer>
+
+<script>
+    // Set current year in footer
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
